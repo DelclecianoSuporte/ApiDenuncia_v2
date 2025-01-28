@@ -18,5 +18,8 @@ namespace ApiDenuncia.ViewModel
         public string Status { get; set; } = "Aberto";
 
         public string Resposta { get; set; } = "";
+
+        // Nova Propriedade
+        public List<ImagemViewModel> Imagens { get; set; } = new List<ImagemViewModel>();
     }
 }

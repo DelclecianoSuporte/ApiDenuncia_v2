@@ -26,8 +26,9 @@ namespace ApiDenuncia.Controllers
             _contexto = contexto;
         }
 
+
         [HttpPost]
-        public async Task<ActionResult<DenunciaViewModel>> CadastrarDenuncia(DenunciaViewModel denunciaViewModel)
+        public async Task<ActionResult<DenunciaViewModel>> CadastrarDenuncia([FromForm] DenunciaViewModel denunciaViewModel, [FromForm] List<IFormFile> imagens)
         {
             if (!ModelState.IsValid)
             {
@@ -35,13 +36,34 @@ namespace ApiDenuncia.Controllers
             }
 
             long numeroProtocolo = GeraProtocolo();
-            
             DateTime dataAtual = DateTime.Now;
 
             denunciaViewModel.Numero_Protocolo = numeroProtocolo;
             denunciaViewModel.Data_Protocolo = dataAtual;
 
             var denuncia = _mapper.Map<Denuncia>(denunciaViewModel);
+
+            if (imagens != null && imagens.Any())
+            {
+                denuncia.Imagens = new List<Imagem>();
+                foreach (var imagem in imagens)
+                {
+                    using (var ms = new MemoryStream())
+                    {
+                        imagem.CopyTo(ms);
+                        var imagemEntity = new Imagem
+                        {
+                            Id = Guid.NewGuid(),
+                            Conteudo = ms.ToArray(),
+                            NomeArquivo = imagem.FileName,
+                            Tipo = imagem.ContentType,
+                            Denuncia = denuncia
+                        };
+                        denuncia.Imagens.Add(imagemEntity);
+                    }
+                }
+            }
+
             await _denunciaSevice.Adicionar(denuncia);
 
             denunciaViewModel.Status = "Aberto";
@@ -50,7 +72,14 @@ namespace ApiDenuncia.Controllers
             var responseViewModel = new DenunciaViewModel
             {
                 Id = denuncia.Id,
-                Mensagem = denunciaViewModel.Mensagem
+                Mensagem = denunciaViewModel.Mensagem,
+                Imagens = denuncia.Imagens.Select(img => new ImagemViewModel
+                {
+                    Id = img.Id,
+                    NomeArquivo = img.NomeArquivo,
+                    Tipo = img.Tipo,
+                    Conteudo = img.Conteudo
+                }).ToList()
             };
 
             return CustomResponse(new { Id = denunciaViewModel.Id, Numero_Protocolo = numeroProtocolo, Data_Protocolo = dataAtual, Mensagem = denunciaViewModel.Mensagem });
@@ -73,19 +102,36 @@ namespace ApiDenuncia.Controllers
             return numeroConvertido;
         }
 
-
         [HttpGet("{numeroProtocolo:long}")]
         public async Task<ActionResult<List<DenunciaViewModel>>> ObterMensagensPorProtocolo(long numeroProtocolo)
         {
-            var mensagens_denuncia = await _denunciaRepository.ObterMensagensPorProtocolo(numeroProtocolo);
+            var denuncias = await _denunciaRepository.ObterMensagensPorProtocolo(numeroProtocolo);
 
-            if (mensagens_denuncia == null || mensagens_denuncia.Count == 0)
+            if (denuncias == null || denuncias.Count == 0)
             {
-                return NotFound("Numero de Protocolo não foi encontrado");
+                return NotFound("Número de Protocolo não foi encontrado");
             }
 
-            return CustomResponse(mensagens_denuncia);
+            var denunciaViewModels = denuncias.Select(d => new DenunciaViewModel
+            {
+                Id = d.Id,
+                Numero_Protocolo = d.Numero_Protocolo,
+                Data_Protocolo = d.Data_Protocolo,
+                Mensagem = d.Mensagem,
+                Status = d.Status,
+                Resposta = d.Resposta,
+                Imagens = d.Imagens.Select(i => new ImagemViewModel
+                {
+                    Id = i.Id,
+                    Conteudo = i.Conteudo,
+                    NomeArquivo = i.NomeArquivo,
+                    Tipo = i.Tipo
+                }).ToList()
+            }).ToList();
+
+            return CustomResponse(denunciaViewModels);
         }
+
 
         [HttpGet("protocolos")]
         public async Task<ActionResult<IEnumerable<DenunciaViewModel>>> MostrarTodosProtocolos()
@@ -140,7 +186,6 @@ namespace ApiDenuncia.Controllers
         {
             public string Resposta { get; set; }
         }
-
 
     }
 }

@@ -9,10 +9,18 @@ namespace ApiDenuncia.Models
 
         public async Task<List<Denuncia>> ObterMensagensPorProtocolo(long numeroProtocolo)
         {
-            var mensagens = await DbSet.Where(m => m.Numero_Protocolo == numeroProtocolo).ToListAsync();
+            var mensagens = await DbSet.Include(m => m.Imagens).Where(m => m.Numero_Protocolo == numeroProtocolo).ToListAsync();
 
             return mensagens;
         }
+
+        /*
+        public async Task<List<Denuncia>> ObterMensagensPorProtocolo(long numeroProtocolo)
+        {
+            var mensagens = await DbSet.Where(m => m.Numero_Protocolo == numeroProtocolo).ToListAsync();
+
+            return mensagens;
+        }*/
 
         public async Task<IEnumerable<Denuncia>> ObterProtocolosAbertos()
         {

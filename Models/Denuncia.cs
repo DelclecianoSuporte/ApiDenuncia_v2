@@ -17,5 +17,7 @@ namespace ApiDenuncia.Models
         [Column(TypeName = "varchar(max)")]
         public string Resposta { get; set; }
         public DateTime? DataHora_Resposta { get; set; }
+
+        public ICollection<Imagem> Imagens { get; set; } = new List<Imagem>();
     }
 }
